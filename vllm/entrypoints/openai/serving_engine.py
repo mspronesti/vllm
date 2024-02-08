@@ -4,17 +4,20 @@ from typing import Dict, List, Optional, Union
 from vllm.logger import init_logger
 from vllm.transformers_utils.tokenizer import get_tokenizer
 from vllm.engine.async_llm_engine import AsyncLLMEngine
-from vllm.entrypoints.openai.protocol import (CompletionRequest,
-                                              ChatCompletionRequest,
-                                              ErrorResponse, LogProbs,
-                                              ModelCard, ModelList,
-                                              ModelPermission)
+from vllm.entrypoints.openai.protocol import (
+    CompletionRequest,
+    ChatCompletionRequest,
+    ErrorResponse,
+    LogProbs,
+    ModelCard,
+    ModelList,
+    ModelPermission,
+)
 
 logger = init_logger(__name__)
 
 
 class OpenAIServing:
-
     def __init__(self, engine: AsyncLLMEngine, served_model: str):
         self.engine = engine
         self.served_model = served_model
@@ -27,7 +30,8 @@ class OpenAIServing:
         except RuntimeError:
             event_loop = None
 
-        if event_loop is not None and event_loop.is_running(
+        if (
+            event_loop is not None and event_loop.is_running()
         ):  # If the current is instanced by Ray Serve, there is already a running event loop
             event_loop.create_task(self._post_init())
         else:  # When using single vLLM without engine_use_ray
@@ -41,14 +45,17 @@ class OpenAIServing:
         self.tokenizer = get_tokenizer(
             engine_model_config.tokenizer,
             tokenizer_mode=engine_model_config.tokenizer_mode,
-            trust_remote_code=engine_model_config.trust_remote_code)
+            trust_remote_code=engine_model_config.trust_remote_code,
+        )
 
     async def show_available_models(self) -> ModelList:
         """Show available models. Right now we only have one model."""
         model_cards = [
-            ModelCard(id=self.served_model,
-                      root=self.served_model,
-                      permission=[ModelPermission()])
+            ModelCard(
+                id=self.served_model,
+                root=self.served_model,
+                permission=[ModelPermission()],
+            )
         ]
         return ModelList(data=model_cards)
 
@@ -76,25 +83,27 @@ class OpenAIServing:
             if len(logprobs.text_offset) == 0:
                 logprobs.text_offset.append(initial_text_offset)
             else:
-                logprobs.text_offset.append(logprobs.text_offset[-1] +
-                                            last_token_len)
+                logprobs.text_offset.append(logprobs.text_offset[-1] + last_token_len)
             last_token_len = len(token)
 
             if num_output_top_logprobs:
-                logprobs.top_logprobs.append({
-                    self.tokenizer.convert_ids_to_tokens(i): p
-                    for i, p in step_top_logprobs.items()
-                } if step_top_logprobs else None)
+                logprobs.top_logprobs.append(
+                    {
+                        self.tokenizer.convert_ids_to_tokens(i): p
+                        for i, p in step_top_logprobs.items()
+                    }
+                    if step_top_logprobs
+                    else None
+                )
         return logprobs
 
     def create_error_response(
-            self,
-            message: str,
-            err_type: str = "BadRequestError",
-            status_code: HTTPStatus = HTTPStatus.BAD_REQUEST) -> ErrorResponse:
-        return ErrorResponse(message=message,
-                             type=err_type,
-                             code=status_code.value)
+        self,
+        message: str,
+        err_type: str = "BadRequestError",
+        status_code: HTTPStatus = HTTPStatus.BAD_REQUEST,
+    ) -> ErrorResponse:
+        return ErrorResponse(message=message, type=err_type, code=status_code.value)
 
     async def _check_model(self, request) -> Optional[ErrorResponse]:
         if request.model == self.served_model:
@@ -102,21 +111,23 @@ class OpenAIServing:
         return self.create_error_response(
             message=f"The model `{request.model}` does not exist.",
             err_type="NotFoundError",
-            status_code=HTTPStatus.NOT_FOUND)
+            status_code=HTTPStatus.NOT_FOUND,
+        )
 
     def _validate_prompt_and_tokenize(
-            self,
-            request: Union[ChatCompletionRequest, CompletionRequest],
-            prompt: Optional[str] = None,
-            prompt_ids: Optional[List[int]] = None) -> List[int]:
+        self,
+        request: Union[ChatCompletionRequest, CompletionRequest],
+        prompt: Optional[str] = None,
+        prompt_ids: Optional[List[int]] = None,
+    ) -> List[int]:
         if not (prompt or prompt_ids):
             raise ValueError("Either prompt or prompt_ids should be provided.")
-        if (prompt and prompt_ids):
-            raise ValueError(
-                "Only one of prompt or prompt_ids should be provided.")
+        if prompt and prompt_ids:
+            raise ValueError("Only one of prompt or prompt_ids should be provided.")
 
-        input_ids = prompt_ids if prompt_ids is not None else self.tokenizer(
-            prompt).input_ids
+        input_ids = (
+            prompt_ids if prompt_ids is not None else self.tokenizer(prompt).input_ids
+        )
         token_num = len(input_ids)
 
         if request.max_tokens is None:
@@ -128,6 +139,7 @@ class OpenAIServing:
                 f"However, you requested {request.max_tokens + token_num} tokens "
                 f"({token_num} in the messages, "
                 f"{request.max_tokens} in the completion). "
-                f"Please reduce the length of the messages or completion.", )
+                f"Please reduce the length of the messages or completion.",
+            )
         else:
             return input_ids

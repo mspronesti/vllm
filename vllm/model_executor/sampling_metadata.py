@@ -50,7 +50,8 @@ class SamplingMetadata:
             f"prompt_lens={self.prompt_lens}, "
             f"selected_token_indices={self.selected_token_indices}, "
             f"categorized_sample_indices={self.categorized_sample_indices}), "
-            f"perform_sampling={self.perform_sampling})")
+            f"perform_sampling={self.perform_sampling})"
+        )
 
 
 @dataclass
@@ -69,9 +70,12 @@ class SamplingTensors:
 
     @classmethod
     def from_sampling_metadata(
-            cls, sampling_metadata: "SamplingMetadata", vocab_size: int,
-            device: torch.device,
-            dtype: torch.dtype) -> Tuple["SamplingTensors", bool, bool, bool]:
+        cls,
+        sampling_metadata: "SamplingMetadata",
+        vocab_size: int,
+        device: torch.device,
+        dtype: torch.dtype,
+    ) -> Tuple["SamplingTensors", bool, bool, bool]:
         prompt_tokens: List[List[int]] = []
         output_tokens: List[List[int]] = []
         top_ks: List[int] = []
@@ -100,17 +104,22 @@ class SamplingTensors:
                 # (i.e., greedy sampling or beam search).
                 # Set the temperature to 1 to avoid division by zero.
                 temperature = 1.0
-            if not do_top_p_top_k and (top_p < 1.0 - _SAMPLING_EPS
-                                       or top_k != vocab_size):
+            if not do_top_p_top_k and (
+                top_p < 1.0 - _SAMPLING_EPS or top_k != vocab_size
+            ):
                 do_top_p_top_k = True
             if not do_min_p and min_p > _SAMPLING_EPS:
                 do_min_p = True
-            if not do_penalties and (abs(p) >= _SAMPLING_EPS
-                                     or abs(f) >= _SAMPLING_EPS
-                                     or abs(r - 1.0) >= _SAMPLING_EPS):
+            if not do_penalties and (
+                abs(p) >= _SAMPLING_EPS
+                or abs(f) >= _SAMPLING_EPS
+                or abs(r - 1.0) >= _SAMPLING_EPS
+            ):
                 do_penalties = True
-            if (i < sampling_metadata.num_prompts
-                    and sampling_params.prompt_logprobs is not None):
+            if (
+                i < sampling_metadata.num_prompts
+                and sampling_params.prompt_logprobs is not None
+            ):
                 # For tokens in the prompt that we only need to get their logprobs
                 prompt_len = sampling_metadata.prompt_lens[i]
                 temperatures += [temperature] * (prompt_len - 1)
@@ -135,21 +144,37 @@ class SamplingTensors:
             repetition_penalties += [r] * len(seq_ids)
 
         sampling_tensors = SamplingTensors.from_lists(
-            temperatures, top_ps, top_ks, min_ps, presence_penalties,
-            frequency_penalties, repetition_penalties, prompt_tokens,
-            output_tokens, vocab_size, device, dtype)
+            temperatures,
+            top_ps,
+            top_ks,
+            min_ps,
+            presence_penalties,
+            frequency_penalties,
+            repetition_penalties,
+            prompt_tokens,
+            output_tokens,
+            vocab_size,
+            device,
+            dtype,
+        )
         return (sampling_tensors, do_penalties, do_top_p_top_k, do_min_p)
 
     @classmethod
-    def from_lists(cls, temperatures: List[float], top_ps: List[float],
-                   top_ks: List[int], min_ps: List[float],
-                   presence_penalties: List[float],
-                   frequency_penalties: List[float],
-                   repetition_penalties: List[float],
-                   prompt_tokens: List[List[int]],
-                   output_tokens: List[List[int]], vocab_size: int,
-                   device: torch.device,
-                   dtype: torch.dtype) -> "SamplingTensors":
+    def from_lists(
+        cls,
+        temperatures: List[float],
+        top_ps: List[float],
+        top_ks: List[int],
+        min_ps: List[float],
+        presence_penalties: List[float],
+        frequency_penalties: List[float],
+        repetition_penalties: List[float],
+        prompt_tokens: List[List[int]],
+        output_tokens: List[List[int]],
+        vocab_size: int,
+        device: torch.device,
+        dtype: torch.dtype,
+    ) -> "SamplingTensors":
         # Note that the performance will be very bad without
         # pinned memory.
         pin_memory = not in_wsl()
@@ -225,12 +250,15 @@ class SamplingTensors:
             top_ps=top_ps_t.to(device=device, non_blocking=True),
             top_ks=top_ks_t.to(device=device, non_blocking=True),
             min_ps=min_ps_t.to(device=device, non_blocking=True),
-            presence_penalties=presence_penalties_t.to(device=device,
-                                                       non_blocking=True),
-            frequency_penalties=frequency_penalties_t.to(device=device,
-                                                         non_blocking=True),
-            repetition_penalties=repetition_penalties_t.to(device=device,
-                                                           non_blocking=True),
+            presence_penalties=presence_penalties_t.to(
+                device=device, non_blocking=True
+            ),
+            frequency_penalties=frequency_penalties_t.to(
+                device=device, non_blocking=True
+            ),
+            repetition_penalties=repetition_penalties_t.to(
+                device=device, non_blocking=True
+            ),
             prompt_tokens=prompt_tensor.to(device=device, non_blocking=True),
             output_tokens=output_tensor.to(device=device, non_blocking=True),
         )

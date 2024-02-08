@@ -8,9 +8,7 @@ DTYPES = [torch.half, torch.bfloat16, torch.float]
 NUM_TOKENS = [7, 83, 2048]  # Arbitrary values for testing
 D = [512, 4096, 5120, 13824]  # Arbitrary values for testing
 SEEDS = [0]
-CUDA_DEVICES = [
-    f"cuda:{i}" for i in range(1 if torch.cuda.device_count() == 1 else 2)
-]
+CUDA_DEVICES = [f"cuda:{i}" for i in range(1 if torch.cuda.device_count() == 1 else 2)]
 
 
 @pytest.mark.parametrize("num_tokens", NUM_TOKENS)
@@ -34,10 +32,9 @@ def test_silu_and_mul(
     layer = SiluAndMul()
     out = layer(x)
     ref_out = layer._forward(x)
-    assert torch.allclose(out,
-                          ref_out,
-                          atol=get_default_atol(out),
-                          rtol=get_default_rtol(out))
+    assert torch.allclose(
+        out, ref_out, atol=get_default_atol(out), rtol=get_default_rtol(out)
+    )
 
 
 @pytest.mark.parametrize("num_tokens", NUM_TOKENS)
@@ -61,10 +58,9 @@ def test_gelu_new(
     layer = NewGELU()
     out = layer(x)
     ref_out = layer._forward(x)
-    assert torch.allclose(out,
-                          ref_out,
-                          atol=get_default_atol(out),
-                          rtol=get_default_rtol(out))
+    assert torch.allclose(
+        out, ref_out, atol=get_default_atol(out), rtol=get_default_rtol(out)
+    )
 
 
 @pytest.mark.parametrize("num_tokens", NUM_TOKENS)
@@ -87,7 +83,6 @@ def test_gelu_fast(
     layer = FastGELU()
     out = layer(x)
     ref_out = layer._forward(x)
-    assert torch.allclose(out,
-                          ref_out,
-                          atol=get_default_atol(out),
-                          rtol=get_default_rtol(out))
+    assert torch.allclose(
+        out, ref_out, atol=get_default_atol(out), rtol=get_default_rtol(out)
+    )

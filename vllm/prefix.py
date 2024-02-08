@@ -74,8 +74,9 @@ class PrefixPool:
         new_length = len(token_ids) // self.block_size * self.block_size
         return tuple(token_ids[:new_length])
 
-    def add_or_get_prefix(self, token_ids: Sequence[int],
-                          lora_int_id: int) -> Optional[Prefix]:
+    def add_or_get_prefix(
+        self, token_ids: Sequence[int], lora_int_id: int
+    ) -> Optional[Prefix]:
         token_ids = self._truncate_token_ids(token_ids)
         if len(token_ids) == 0:
             # Prefix is empty.

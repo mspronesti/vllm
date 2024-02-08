@@ -4,8 +4,13 @@ from typing import Any, List, Optional, Set, Type, Union
 
 import torch
 
-from vllm.lora.models import (TARGET_MODULES_QKV, LoRAModel, LoRAModelManager,
-                              LRUCacheLoRAModelManager, create_lora_manager)
+from vllm.lora.models import (
+    TARGET_MODULES_QKV,
+    LoRAModel,
+    LoRAModelManager,
+    LRUCacheLoRAModelManager,
+    create_lora_manager,
+)
 from vllm.lora.request import LoRARequest
 from vllm.lora.layers import LoRAMapping
 from vllm.config import LoRAConfig
@@ -16,9 +21,14 @@ logger = logging.getLogger(__name__)
 class WorkerLoRAManager(ABC):
     """Abstract class for managing LoRA models on the worker side."""
 
-    def __init__(self, max_num_seqs: int, max_num_batched_tokens: int,
-                 vocab_size: int, lora_config: LoRAConfig,
-                 device: torch.device):
+    def __init__(
+        self,
+        max_num_seqs: int,
+        max_num_batched_tokens: int,
+        vocab_size: int,
+        lora_config: LoRAConfig,
+        device: torch.device,
+    ):
         self.max_num_seqs = max_num_seqs
         self.max_num_batched_tokens = max_num_batched_tokens
         self.vocab_size = vocab_size
@@ -38,8 +48,9 @@ class WorkerLoRAManager(ABC):
         ...
 
     @abstractmethod
-    def set_active_loras(self, lora_requests: List[LoRARequest],
-                         lora_mapping: LoRAMapping) -> None:
+    def set_active_loras(
+        self, lora_requests: List[LoRARequest], lora_mapping: LoRAMapping
+    ) -> None:
         ...
 
     @abstractmethod
@@ -82,8 +93,9 @@ class WorkerLoRAManager(WorkerLoRAManager):
     ):
         self._lora_manager: Optional[LoRAModelManager] = None
         self._lora_model_cls = lora_model_cls
-        super().__init__(max_num_seqs, max_num_batched_tokens, vocab_size,
-                         lora_config, device)
+        super().__init__(
+            max_num_seqs, max_num_batched_tokens, vocab_size, lora_config, device
+        )
 
     @property
     def is_enabled(self) -> bool:
@@ -106,8 +118,9 @@ class WorkerLoRAManager(WorkerLoRAManager):
         self._lora_manager: LoRAModelManager = lora_manager
         return lora_manager.model
 
-    def set_active_loras(self, lora_requests: List[LoRARequest],
-                         lora_mapping: LoRAMapping) -> None:
+    def set_active_loras(
+        self, lora_requests: List[LoRARequest], lora_mapping: LoRAMapping
+    ) -> None:
         self._apply_loras(lora_requests)
         self._lora_manager.set_lora_mapping(lora_mapping)
 
@@ -115,13 +128,15 @@ class WorkerLoRAManager(WorkerLoRAManager):
         loras_that_exist = self.list_loras()
         loras_map = {
             lora_request.lora_int_id: lora_request
-            for lora_request in lora_requests if lora_request
+            for lora_request in lora_requests
+            if lora_request
         }
         if len(loras_map) > self._lora_manager.lora_slots:
             raise RuntimeError(
                 f"Number of requested LoRAs ({len(loras_map)}) is greater "
                 "than the number of GPU LoRA slots "
-                f"({self._lora_manager.lora_slots}).")
+                f"({self._lora_manager.lora_slots})."
+            )
 
         new_loras = set(loras_map)
         loras_to_add = new_loras - loras_that_exist
@@ -140,16 +155,18 @@ class WorkerLoRAManager(WorkerLoRAManager):
                 lora_model_id=lora_request.lora_int_id,
                 device="cpu",
                 dtype=self.lora_config.lora_dtype,
-                target_embedding_padding=self.vocab_size +
-                self.lora_config.lora_extra_vocab_size,
+                target_embedding_padding=self.vocab_size
+                + self.lora_config.lora_extra_vocab_size,
             )
         except Exception as e:
             raise RuntimeError(
-                f"Loading lora {lora_request.lora_local_path} failed") from e
+                f"Loading lora {lora_request.lora_local_path} failed"
+            ) from e
         if lora.rank > self.lora_config.max_lora_rank:
             raise ValueError(
                 f"LoRA rank {lora.rank} is greater than max_lora_rank "
-                f"{self.lora_config.max_lora_rank}.")
+                f"{self.lora_config.max_lora_rank}."
+            )
         if lora.extra_vocab_size > self.lora_config.lora_extra_vocab_size:
             raise ValueError(
                 f"LoRA added vocab size {lora.extra_vocab_size} is greater than "
@@ -161,8 +178,8 @@ class WorkerLoRAManager(WorkerLoRAManager):
         if lora_request.lora_int_id in self.list_loras():
             return False
         return self._lora_manager.add_lora(
-            self._lora_manager.create_dummy_lora(lora_request.lora_int_id,
-                                                 rank))
+            self._lora_manager.create_dummy_lora(lora_request.lora_int_id, rank)
+        )
 
     def add_lora(self, lora_request: LoRARequest) -> bool:
         if lora_request.lora_int_id in self.list_loras():
@@ -189,8 +206,7 @@ class LRUCacheWorkerLoRAManager(WorkerLoRAManager):
     (unless they are already loaded) and least recently used LoRAs will
     be unloaded if the cache is above capacity."""
 
-    _lora_manager_cls: Type[
-        LRUCacheLoRAModelManager] = LRUCacheLoRAModelManager
+    _lora_manager_cls: Type[LRUCacheLoRAModelManager] = LRUCacheLoRAModelManager
 
     def create_lora_manager(
         self,
@@ -212,13 +228,15 @@ class LRUCacheWorkerLoRAManager(WorkerLoRAManager):
     def _apply_loras(self, lora_requests: List[LoRARequest]) -> None:
         loras_map = {
             lora_request.lora_int_id: lora_request
-            for lora_request in lora_requests if lora_request
+            for lora_request in lora_requests
+            if lora_request
         }
         if len(loras_map) > self._lora_manager.lora_slots:
             raise RuntimeError(
                 f"Number of requested LoRAs ({len(loras_map)}) is greater "
                 "than the number of GPU LoRA slots "
-                f"({self._lora_manager.lora_slots}).")
+                f"({self._lora_manager.lora_slots})."
+            )
         for lora in loras_map.values():
             self.add_lora(lora)
 

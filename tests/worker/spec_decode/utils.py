@@ -13,16 +13,15 @@ from dataclasses import dataclass, fields
 
 @dataclass
 class ExecuteModelData:
-    """Helper data structure which facilitates cleaner tests.
-    """
+    """Helper data structure which facilitates cleaner tests."""
+
     seq_group_metadata_list: List[SequenceGroupMetadata]
     blocks_to_swap_in: Dict[int, int]
     blocks_to_swap_out: Dict[int, int]
     blocks_to_copy: Dict[int, List[int]]
 
     def to_dict(self):
-        return dict(
-            (field.name, getattr(self, field.name)) for field in fields(self))
+        return dict((field.name, getattr(self, field.name)) for field in fields(self))
 
 
 def round_up_to_next_block(seq_len: int, block_size: int) -> int:
@@ -69,13 +68,15 @@ def zero_kv_cache(cache_engine: CacheEngine):
         value_blocks.zero_()
 
 
-def create_worker(cls: type,
-                  model_name: str,
-                  block_size: int,
-                  num_gpu_blocks: int,
-                  seed: int,
-                  is_driver_worker: bool = True,
-                  enforce_eager: bool = True):
+def create_worker(
+    cls: type,
+    model_name: str,
+    block_size: int,
+    num_gpu_blocks: int,
+    seed: int,
+    is_driver_worker: bool = True,
+    enforce_eager: bool = True,
+):
     engine_args = EngineArgs(
         model=model_name,
         seed=seed,
@@ -83,11 +84,16 @@ def create_worker(cls: type,
         enforce_eager=enforce_eager,
     )
 
-    (model_config, cache_config, parallel_config, scheduler_config,
-     device_config, _) = engine_args.create_engine_configs()
+    (
+        model_config,
+        cache_config,
+        parallel_config,
+        scheduler_config,
+        device_config,
+        _,
+    ) = engine_args.create_engine_configs()
 
-    distributed_init_method = get_distributed_init_method(
-        get_ip(), get_open_port())
+    distributed_init_method = get_distributed_init_method(get_ip(), get_open_port())
 
     worker = cls(
         model_config=model_config,
@@ -120,7 +126,6 @@ def create_seq_group_metadata_from_prompts(
     num_tokens_processed: Optional[List[int]] = None,
     seq_ids: Optional[List[int]] = None,
 ) -> List[SequenceGroupMetadata]:
-
     if continuations is None:
         continuations = [[] for _ in prompts]
 
@@ -133,8 +138,7 @@ def create_seq_group_metadata_from_prompts(
                 num_tokens_processed.append(0)
             else:
                 # If generation, then default to all but one tokens processed.
-                num_tokens_processed.append(
-                    len(continuation) + len(prompt) - 1)
+                num_tokens_processed.append(len(continuation) + len(prompt) - 1)
 
     if seq_ids is None:
         seq_ids = list(i for i, _ in enumerate(prompts))
@@ -154,24 +158,30 @@ def create_seq_group_metadata_from_prompts(
             request_id=str(i),
             is_prompt=len(cont_token_ids) == 0,
             seq_data={
-                i:
-                SequenceData(prompt_token_ids=prompt_token_ids[:] +
-                             cont_token_ids[:])
+                i: SequenceData(
+                    prompt_token_ids=prompt_token_ids[:] + cont_token_ids[:]
+                )
             },
-            sampling_params=SamplingParams(temperature=0.0, ),
+            sampling_params=SamplingParams(
+                temperature=0.0,
+            ),
             block_tables={i: block_allocations[i][:]},
-        ) for i, (prompt_token_ids, cont_token_ids, num_tokens_saved) in
-        enumerate(zip(prompts, continuations, num_tokens_processed))
+        )
+        for i, (prompt_token_ids, cont_token_ids, num_tokens_saved) in enumerate(
+            zip(prompts, continuations, num_tokens_processed)
+        )
     ]
 
 
 def assert_logprobs_dict_allclose(
-        actual_logprobs: List[Dict[int, float]],
-        expected_logprobs: List[Dict[int, float]]) -> None:
+    actual_logprobs: List[Dict[int, float]], expected_logprobs: List[Dict[int, float]]
+) -> None:
     for single_step_actual_logprobs, single_step_expected_logprobs in zip(
-            actual_logprobs, expected_logprobs):
+        actual_logprobs, expected_logprobs
+    ):
         assert set(single_step_actual_logprobs.keys()) == set(
-            single_step_expected_logprobs.keys())
+            single_step_expected_logprobs.keys()
+        )
         for token_id in single_step_actual_logprobs:
             actual = torch.tensor(single_step_actual_logprobs[token_id])
             expected = torch.tensor(single_step_expected_logprobs[token_id])

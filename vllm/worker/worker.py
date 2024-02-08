@@ -6,14 +6,20 @@ from typing import Dict, List, Tuple, Set, Optional
 import torch
 import torch.distributed
 
-from vllm.config import (CacheConfig, DeviceConfig, ModelConfig,
-                         ParallelConfig, SchedulerConfig, LoRAConfig)
+from vllm.config import (
+    CacheConfig,
+    DeviceConfig,
+    ModelConfig,
+    ParallelConfig,
+    SchedulerConfig,
+    LoRAConfig,
+)
 from vllm.model_executor import set_random_seed
-from vllm.model_executor.parallel_utils.communication_op import (
-    broadcast_tensor_dict)
+from vllm.model_executor.parallel_utils.communication_op import broadcast_tensor_dict
 from vllm.model_executor.parallel_utils.custom_all_reduce import init_custom_ar
 from vllm.model_executor.parallel_utils.parallel_state import (
-    ensure_model_parallel_initialized)
+    ensure_model_parallel_initialized,
+)
 from vllm.sequence import SamplerOutput, SequenceGroupMetadata
 from vllm.worker.cache_engine import CacheEngine
 from vllm.worker.model_runner import ModelRunner
@@ -53,13 +59,15 @@ class Worker:
         if self.is_driver_worker:
             assert self.rank == 0, "The driver worker must have rank 0."
 
-        self.model_runner = ModelRunner(model_config,
-                                        parallel_config,
-                                        scheduler_config,
-                                        device_config,
-                                        lora_config=self.lora_config,
-                                        kv_cache_dtype=kv_cache_dtype,
-                                        is_driver_worker=is_driver_worker)
+        self.model_runner = ModelRunner(
+            model_config,
+            parallel_config,
+            scheduler_config,
+            device_config,
+            lora_config=self.lora_config,
+            kv_cache_dtype=kv_cache_dtype,
+            is_driver_worker=is_driver_worker,
+        )
         # Uninitialized cache engine. Will be initialized by
         # self.init_cache_engine().
         self.cache_config = None
@@ -84,11 +92,11 @@ class Worker:
 
             _check_if_gpu_supports_dtype(self.model_config.dtype)
         else:
-            raise RuntimeError(
-                f"Not support device type: {self.device_config.device}")
+            raise RuntimeError(f"Not support device type: {self.device_config.device}")
         # Initialize the distributed environment.
-        init_distributed_environment(self.parallel_config, self.rank,
-                                     self.distributed_init_method)
+        init_distributed_environment(
+            self.parallel_config, self.rank, self.distributed_init_method
+        )
         if not self.parallel_config.disable_custom_all_reduce:
             init_custom_ar()
         # Initialize the model.
@@ -128,10 +136,12 @@ class Worker:
         peak_memory = total_gpu_memory - free_gpu_memory
 
         cache_block_size = CacheEngine.get_cache_block_size(
-            block_size, cache_dtype, self.model_config, self.parallel_config)
+            block_size, cache_dtype, self.model_config, self.parallel_config
+        )
         num_gpu_blocks = int(
-            (total_gpu_memory * gpu_memory_utilization - peak_memory) //
-            cache_block_size)
+            (total_gpu_memory * gpu_memory_utilization - peak_memory)
+            // cache_block_size
+        )
         num_cpu_blocks = int(cpu_swap_space // cache_block_size)
         num_gpu_blocks = max(num_gpu_blocks, 0)
         num_cpu_blocks = max(num_cpu_blocks, 0)
@@ -143,8 +153,9 @@ class Worker:
 
     def init_cache_engine(self, cache_config: CacheConfig) -> None:
         self.cache_config = cache_config
-        self.cache_engine = CacheEngine(self.cache_config, self.model_config,
-                                        self.parallel_config)
+        self.cache_engine = CacheEngine(
+            self.cache_config, self.model_config, self.parallel_config
+        )
         self.cache_events = self.cache_engine.events
         self.gpu_cache = self.cache_engine.gpu_cache
         self.model_runner.set_block_size(self.cache_engine.block_size)
@@ -216,8 +227,9 @@ class Worker:
         if num_seq_groups == 0:
             return {}
 
-        output = self.model_runner.execute_model(seq_group_metadata_list,
-                                                 self.gpu_cache)
+        output = self.model_runner.execute_model(
+            seq_group_metadata_list, self.gpu_cache
+        )
         return output
 
     def add_lora(self, lora_request: LoRARequest) -> bool:
@@ -242,11 +254,13 @@ def init_distributed_environment(
             raise RuntimeError(
                 "torch.distributed is already initialized but the torch world "
                 "size does not match parallel_config.world_size "
-                f"({torch_world_size} vs. {parallel_config.world_size}).")
+                f"({torch_world_size} vs. {parallel_config.world_size})."
+            )
     elif not distributed_init_method:
         raise ValueError(
             "distributed_init_method must be set if torch.distributed "
-            "is not already initialized")
+            "is not already initialized"
+        )
     else:
         torch.distributed.init_process_group(
             backend="nccl",
@@ -257,8 +271,9 @@ def init_distributed_environment(
 
     # A small all_reduce for warmup.
     torch.distributed.all_reduce(torch.zeros(1).cuda())
-    ensure_model_parallel_initialized(parallel_config.tensor_parallel_size,
-                                      parallel_config.pipeline_parallel_size)
+    ensure_model_parallel_initialized(
+        parallel_config.tensor_parallel_size, parallel_config.pipeline_parallel_size
+    )
 
 
 def _check_if_gpu_supports_dtype(torch_dtype: torch.dtype):
@@ -272,4 +287,5 @@ def _check_if_gpu_supports_dtype(torch_dtype: torch.dtype):
                 f"of at least 8.0. Your {gpu_name} GPU has compute capability "
                 f"{compute_capability[0]}.{compute_capability[1]}. "
                 "You can use float16 instead by explicitly setting the"
-                "`dtype` flag in CLI, for example: --dtype=half.")
+                "`dtype` flag in CLI, for example: --dtype=half."
+            )

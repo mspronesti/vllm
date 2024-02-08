@@ -22,7 +22,8 @@ logger = init_logger(__name__)
 TypeTokenIDs = List[int]
 TypeTopLogProbs = List[Optional[Dict[int, float]]]
 TypeCreateLogProbsFn = Callable[
-    [TypeTokenIDs, TypeTopLogProbs, Optional[int], int], LogProbs]
+    [TypeTokenIDs, TypeTopLogProbs, Optional[int], int], LogProbs
+]
 
 
 async def completion_stream_generator(
@@ -41,7 +42,6 @@ async def completion_stream_generator(
     has_echoed = [False] * request.n * num_prompts
 
     async for prompt_idx, res in result_generator:
-
         # Abort the request if the client disconnects.
         if await raw_request.is_disconnected():
             await on_abort(f"{request_id}-{prompt_idx}")
@@ -65,13 +65,18 @@ async def completion_stream_generator(
                 has_echoed[i] = True
             else:
                 # return just the delta
-                delta_text = output.text[len(previous_texts[i]):]
-                delta_token_ids = output.token_ids[previous_num_tokens[i]:]
-                top_logprobs = output.logprobs[
-                    previous_num_tokens[i]:] if output.logprobs else None
+                delta_text = output.text[len(previous_texts[i]) :]
+                delta_token_ids = output.token_ids[previous_num_tokens[i] :]
+                top_logprobs = (
+                    output.logprobs[previous_num_tokens[i] :]
+                    if output.logprobs
+                    else None
+                )
 
             if request.logprobs is not None:
-                assert top_logprobs is not None, "top_logprobs must be provided when logprobs is requested"
+                assert (
+                    top_logprobs is not None
+                ), "top_logprobs must be provided when logprobs is requested"
                 logprobs = create_logprobs_fn(
                     token_ids=delta_token_ids,
                     top_logprobs=top_logprobs,
@@ -95,7 +100,8 @@ async def completion_stream_generator(
                         logprobs=logprobs,
                         finish_reason=finish_reason,
                     )
-                ]).model_dump_json(exclude_unset=True)
+                ],
+            ).model_dump_json(exclude_unset=True)
             yield f"data: {response_json}\n\n"
 
             if output.finish_reason is not None:  # return final usage
@@ -200,7 +206,8 @@ def request_output_to_completion_response(
 
         num_prompt_tokens += len(prompt_token_ids)
         num_generated_tokens += sum(
-            len(output.token_ids) for output in final_res.outputs)
+            len(output.token_ids) for output in final_res.outputs
+        )
 
     usage = UsageInfo(
         prompt_tokens=num_prompt_tokens,
@@ -248,12 +255,10 @@ def merge_async_iterators(*iterators):
 
 
 class OpenAIServingCompletion(OpenAIServing):
-
     def __init__(self, engine: AsyncLLMEngine, served_model: str):
         super().__init__(engine=engine, served_model=served_model)
 
-    async def create_completion(self, request: CompletionRequest,
-                                raw_request: Request):
+    async def create_completion(self, request: CompletionRequest, raw_request: Request):
         """Completion API similar to OpenAI's API.
 
         See https://platform.openai.com/docs/api-reference/completions/create
@@ -270,11 +275,9 @@ class OpenAIServingCompletion(OpenAIServing):
 
         # Return error for unsupported features.
         if request.suffix is not None:
-            return self.create_error_response(
-                "suffix is not currently supported")
+            return self.create_error_response("suffix is not currently supported")
         if request.logit_bias is not None and len(request.logit_bias) > 0:
-            return self.create_error_response(
-                "logit_bias is not currently supported")
+            return self.create_error_response("logit_bias is not currently supported")
 
         model_name = request.model
         request_id = f"cmpl-{random_uuid()}"
@@ -289,39 +292,49 @@ class OpenAIServingCompletion(OpenAIServing):
             for i, prompt in enumerate(prompts):
                 if prompt_is_tokens:
                     input_ids = self._validate_prompt_and_tokenize(
-                        request, prompt_ids=prompt)
+                        request, prompt_ids=prompt
+                    )
                 else:
                     input_ids = self._validate_prompt_and_tokenize(
-                        request, prompt=prompt)
+                        request, prompt=prompt
+                    )
 
                 generators.append(
-                    self.engine.generate(None,
-                                         sampling_params,
-                                         f"{request_id}-{i}",
-                                         prompt_token_ids=input_ids))
+                    self.engine.generate(
+                        None,
+                        sampling_params,
+                        f"{request_id}-{i}",
+                        prompt_token_ids=input_ids,
+                    )
+                )
         except ValueError as e:
             return self.create_error_response(str(e))
 
-        result_generator: AsyncIterator[Tuple[
-            int, RequestOutput]] = merge_async_iterators(*generators)
+        result_generator: AsyncIterator[
+            Tuple[int, RequestOutput]
+        ] = merge_async_iterators(*generators)
 
         # Similar to the OpenAI API, when n != best_of, we do not stream the
         # results. In addition, we do not stream the results when use beam search.
-        stream = (request.stream
-                  and (request.best_of is None or request.n == request.best_of)
-                  and not request.use_beam_search)
+        stream = (
+            request.stream
+            and (request.best_of is None or request.n == request.best_of)
+            and not request.use_beam_search
+        )
 
         # Streaming response
         if stream:
-            return completion_stream_generator(request,
-                                               raw_request,
-                                               self.engine.abort,
-                                               result_generator,
-                                               self._create_logprobs,
-                                               request_id,
-                                               created_time,
-                                               model_name,
-                                               num_prompts=len(prompts))
+            return completion_stream_generator(
+                request,
+                raw_request,
+                self.engine.abort,
+                result_generator,
+                self._create_logprobs,
+                request_id,
+                created_time,
+                model_name,
+                num_prompts=len(prompts),
+            )
 
         # Non-streaming response
         final_res_batch: RequestOutput = [None] * len(prompts)
@@ -332,8 +345,13 @@ class OpenAIServingCompletion(OpenAIServing):
                 return self.create_error_response("Client disconnected")
             final_res_batch[i] = res
         response = request_output_to_completion_response(
-            final_res_batch, request, self._create_logprobs, request_id,
-            created_time, model_name)
+            final_res_batch,
+            request,
+            self._create_logprobs,
+            request_id,
+            created_time,
+            model_name,
+        )
 
         # When user requests streaming but we don't stream, we still need to
         # return a streaming response with a single event.

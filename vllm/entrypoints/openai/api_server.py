@@ -19,7 +19,11 @@ from fastapi.responses import JSONResponse, StreamingResponse, Response
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
 from vllm.engine.metrics import add_global_metrics_labels
-from vllm.entrypoints.openai.protocol import CompletionRequest, ChatCompletionRequest, ErrorResponse
+from vllm.entrypoints.openai.protocol import (
+    CompletionRequest,
+    ChatCompletionRequest,
+    ErrorResponse,
+)
 from vllm.logger import init_logger
 from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
 from vllm.entrypoints.openai.serving_completion import OpenAIServingCompletion
@@ -33,7 +37,6 @@ logger = init_logger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: fastapi.FastAPI):
-
     async def _force_log():
         while True:
             await asyncio.sleep(10)
@@ -50,61 +53,68 @@ app = fastapi.FastAPI(lifespan=lifespan)
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="vLLM OpenAI-Compatible RESTful API server.")
+        description="vLLM OpenAI-Compatible RESTful API server."
+    )
     parser.add_argument("--host", type=str, default=None, help="host name")
     parser.add_argument("--port", type=int, default=8000, help="port number")
-    parser.add_argument("--allow-credentials",
-                        action="store_true",
-                        help="allow credentials")
-    parser.add_argument("--allowed-origins",
-                        type=json.loads,
-                        default=["*"],
-                        help="allowed origins")
-    parser.add_argument("--allowed-methods",
-                        type=json.loads,
-                        default=["*"],
-                        help="allowed methods")
-    parser.add_argument("--allowed-headers",
-                        type=json.loads,
-                        default=["*"],
-                        help="allowed headers")
+    parser.add_argument(
+        "--allow-credentials", action="store_true", help="allow credentials"
+    )
+    parser.add_argument(
+        "--allowed-origins", type=json.loads, default=["*"], help="allowed origins"
+    )
+    parser.add_argument(
+        "--allowed-methods", type=json.loads, default=["*"], help="allowed methods"
+    )
+    parser.add_argument(
+        "--allowed-headers", type=json.loads, default=["*"], help="allowed headers"
+    )
     parser.add_argument(
         "--api-key",
         type=str,
         default=None,
-        help=
-        "If provided, the server will require this key to be presented in the header."
+        help="If provided, the server will require this key to be presented in the header.",
     )
-    parser.add_argument("--served-model-name",
-                        type=str,
-                        default=None,
-                        help="The model name used in the API. If not "
-                        "specified, the model name will be the same as "
-                        "the huggingface name.")
-    parser.add_argument("--chat-template",
-                        type=str,
-                        default=None,
-                        help="The file path to the chat template, "
-                        "or the template in single-line form "
-                        "for the specified model")
-    parser.add_argument("--response-role",
-                        type=str,
-                        default="assistant",
-                        help="The role name to return if "
-                        "`request.add_generation_prompt=true`.")
-    parser.add_argument("--ssl-keyfile",
-                        type=str,
-                        default=None,
-                        help="The file path to the SSL key file")
-    parser.add_argument("--ssl-certfile",
-                        type=str,
-                        default=None,
-                        help="The file path to the SSL cert file")
+    parser.add_argument(
+        "--served-model-name",
+        type=str,
+        default=None,
+        help="The model name used in the API. If not "
+        "specified, the model name will be the same as "
+        "the huggingface name.",
+    )
+    parser.add_argument(
+        "--chat-template",
+        type=str,
+        default=None,
+        help="The file path to the chat template, "
+        "or the template in single-line form "
+        "for the specified model",
+    )
+    parser.add_argument(
+        "--response-role",
+        type=str,
+        default="assistant",
+        help="The role name to return if " "`request.add_generation_prompt=true`.",
+    )
+    parser.add_argument(
+        "--ssl-keyfile",
+        type=str,
+        default=None,
+        help="The file path to the SSL key file",
+    )
+    parser.add_argument(
+        "--ssl-certfile",
+        type=str,
+        default=None,
+        help="The file path to the SSL cert file",
+    )
     parser.add_argument(
         "--root-path",
         type=str,
         default=None,
-        help="FastAPI root_path when app is behind a path based routing proxy")
+        help="FastAPI root_path when app is behind a path based routing proxy",
+    )
     parser.add_argument(
         "--middleware",
         type=str,
@@ -114,7 +124,7 @@ def parse_args():
         "We accept multiple --middleware arguments. "
         "The value should be an import path. "
         "If a function is provided, vLLM will add it to the server using @app.middleware('http'). "
-        "If a class is provided, vLLM will add it to the server using app.add_middleware(). "
+        "If a class is provided, vLLM will add it to the server using app.add_middleware(). ",
     )
 
     parser = AsyncEngineArgs.add_cli_args(parser)
@@ -144,30 +154,23 @@ async def show_available_models():
 
 
 @app.post("/v1/chat/completions")
-async def create_chat_completion(request: ChatCompletionRequest,
-                                 raw_request: Request):
-    generator = await openai_serving_chat.create_chat_completion(
-        request, raw_request)
+async def create_chat_completion(request: ChatCompletionRequest, raw_request: Request):
+    generator = await openai_serving_chat.create_chat_completion(request, raw_request)
     if isinstance(generator, ErrorResponse):
-        return JSONResponse(content=generator.model_dump(),
-                            status_code=generator.code)
+        return JSONResponse(content=generator.model_dump(), status_code=generator.code)
     if request.stream:
-        return StreamingResponse(content=generator,
-                                 media_type="text/event-stream")
+        return StreamingResponse(content=generator, media_type="text/event-stream")
     else:
         return JSONResponse(content=generator.model_dump())
 
 
 @app.post("/v1/completions")
 async def create_completion(request: CompletionRequest, raw_request: Request):
-    generator = await openai_serving_completion.create_completion(
-        request, raw_request)
+    generator = await openai_serving_completion.create_completion(request, raw_request)
     if isinstance(generator, ErrorResponse):
-        return JSONResponse(content=generator.model_dump(),
-                            status_code=generator.code)
+        return JSONResponse(content=generator.model_dump(), status_code=generator.code)
     if request.stream:
-        return StreamingResponse(content=generator,
-                                 media_type="text/event-stream")
+        return StreamingResponse(content=generator, media_type="text/event-stream")
     else:
         return JSONResponse(content=generator.model_dump())
 
@@ -190,8 +193,7 @@ if __name__ == "__main__":
             if not request.url.path.startswith("/v1"):
                 return await call_next(request)
             if request.headers.get("Authorization") != "Bearer " + token:
-                return JSONResponse(content={"error": "Unauthorized"},
-                                    status_code=401)
+                return JSONResponse(content={"error": "Unauthorized"}, status_code=401)
             return await call_next(request)
 
     for middleware in args.middleware:
@@ -215,19 +217,21 @@ if __name__ == "__main__":
 
     engine_args = AsyncEngineArgs.from_cli_args(args)
     engine = AsyncLLMEngine.from_engine_args(engine_args)
-    openai_serving_chat = OpenAIServingChat(engine, served_model,
-                                            args.response_role,
-                                            args.chat_template)
+    openai_serving_chat = OpenAIServingChat(
+        engine, served_model, args.response_role, args.chat_template
+    )
     openai_serving_completion = OpenAIServingCompletion(engine, served_model)
 
     # Register labels for metrics
     add_global_metrics_labels(model_name=engine_args.model)
 
     app.root_path = args.root_path
-    uvicorn.run(app,
-                host=args.host,
-                port=args.port,
-                log_level="info",
-                timeout_keep_alive=TIMEOUT_KEEP_ALIVE,
-                ssl_keyfile=args.ssl_keyfile,
-                ssl_certfile=args.ssl_certfile)
+    uvicorn.run(
+        app,
+        host=args.host,
+        port=args.port,
+        log_level="info",
+        timeout_keep_alive=TIMEOUT_KEEP_ALIVE,
+        ssl_keyfile=args.ssl_keyfile,
+        ssl_certfile=args.ssl_certfile,
+    )

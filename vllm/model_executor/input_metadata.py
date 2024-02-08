@@ -44,11 +44,13 @@ class InputMetadata:
         self.attn_bias = None
 
     def __repr__(self) -> str:
-        return ("InputMetadata("
-                f"is_prompt={self.is_prompt}, "
-                f"max_context_len={self.max_context_len}, "
-                f"slot_mapping={self.slot_mapping}, "
-                f"context_lens={self.context_lens}, "
-                f"block_tables={self.block_tables}, "
-                f"use_cuda_graph={self.use_cuda_graph}, "
-                f"kv_cache_dtype={self.kv_cache_dtype})")
+        return (
+            "InputMetadata("
+            f"is_prompt={self.is_prompt}, "
+            f"max_context_len={self.max_context_len}, "
+            f"slot_mapping={self.slot_mapping}, "
+            f"context_lens={self.context_lens}, "
+            f"block_tables={self.block_tables}, "
+            f"use_cuda_graph={self.use_cuda_graph}, "
+            f"kv_cache_dtype={self.kv_cache_dtype})"
+        )

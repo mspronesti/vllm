@@ -109,8 +109,7 @@ class LLM:
         self.llm_engine = LLMEngine.from_engine_args(engine_args)
         self.request_counter = Counter()
 
-    def get_tokenizer(
-            self) -> Union[PreTrainedTokenizer, PreTrainedTokenizerFast]:
+    def get_tokenizer(self) -> Union[PreTrainedTokenizer, PreTrainedTokenizerFast]:
         return self.llm_engine.tokenizer.tokenizer
 
     def set_tokenizer(
@@ -153,32 +152,35 @@ class LLM:
             completions in the same order as the input prompts.
         """
         if prompts is None and prompt_token_ids is None:
-            raise ValueError("Either prompts or prompt_token_ids must be "
-                             "provided.")
+            raise ValueError("Either prompts or prompt_token_ids must be " "provided.")
         if isinstance(prompts, str):
             # Convert a single prompt to a list.
             prompts = [prompts]
-        if (prompts is not None and prompt_token_ids is not None
-                and len(prompts) != len(prompt_token_ids)):
-            raise ValueError("The lengths of prompts and prompt_token_ids "
-                             "must be the same.")
+        if (
+            prompts is not None
+            and prompt_token_ids is not None
+            and len(prompts) != len(prompt_token_ids)
+        ):
+            raise ValueError(
+                "The lengths of prompts and prompt_token_ids " "must be the same."
+            )
         if sampling_params is None:
             # Use default sampling params.
             sampling_params = SamplingParams()
 
         # Add requests to the engine.
-        num_requests = len(prompts) if prompts is not None else len(
-            prompt_token_ids)
+        num_requests = len(prompts) if prompts is not None else len(prompt_token_ids)
         for i in range(num_requests):
             prompt = prompts[i] if prompts is not None else None
             prefix_pos_i = prefix_pos[i] if prefix_pos is not None else None
-            token_ids = None if prompt_token_ids is None else prompt_token_ids[
-                i]
-            self._add_request(prompt,
-                              sampling_params,
-                              token_ids,
-                              lora_request=lora_request,
-                              prefix_pos=prefix_pos_i)
+            token_ids = None if prompt_token_ids is None else prompt_token_ids[i]
+            self._add_request(
+                prompt,
+                sampling_params,
+                token_ids,
+                lora_request=lora_request,
+                prefix_pos=prefix_pos_i,
+            )
         return self._run_engine(use_tqdm)
 
     def _add_request(
@@ -190,12 +192,14 @@ class LLM:
         prefix_pos: Optional[int] = None,
     ) -> None:
         request_id = str(next(self.request_counter))
-        self.llm_engine.add_request(request_id,
-                                    prompt,
-                                    sampling_params,
-                                    prompt_token_ids,
-                                    lora_request=lora_request,
-                                    prefix_pos=prefix_pos)
+        self.llm_engine.add_request(
+            request_id,
+            prompt,
+            sampling_params,
+            prompt_token_ids,
+            lora_request=lora_request,
+            prefix_pos=prefix_pos,
+        )
 
     def _run_engine(self, use_tqdm: bool) -> List[RequestOutput]:
         # Initialize tqdm.

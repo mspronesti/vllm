@@ -15,15 +15,15 @@ async def test_transformers_tokenizer():
         max_input_length=None,
     )
     assert reference_tokenizer.encode("prompt") == tokenizer.encode(
-        request_id="request_id", prompt="prompt", lora_request=None)
-    assert reference_tokenizer.encode(
-        "prompt") == await tokenizer.encode_async(request_id="request_id",
-                                                  prompt="prompt",
-                                                  lora_request=None)
-    assert isinstance(tokenizer.get_lora_tokenizer(None),
-                      PreTrainedTokenizerBase)
+        request_id="request_id", prompt="prompt", lora_request=None
+    )
+    assert reference_tokenizer.encode("prompt") == await tokenizer.encode_async(
+        request_id="request_id", prompt="prompt", lora_request=None
+    )
+    assert isinstance(tokenizer.get_lora_tokenizer(None), PreTrainedTokenizerBase)
     assert tokenizer.get_lora_tokenizer(
-        None) == await tokenizer.get_lora_tokenizer_async(None)
+        None
+    ) == await tokenizer.get_lora_tokenizer_async(None)
 
 
 @pytest.mark.asyncio
@@ -37,22 +37,25 @@ async def test_transformers_tokenizer_lora(sql_lora_files):
     )
     lora_request = LoRARequest("1", 1, sql_lora_files)
     assert reference_tokenizer.encode("prompt") == tokenizer.encode(
-        request_id="request_id", prompt="prompt", lora_request=lora_request)
-    assert reference_tokenizer.encode(
-        "prompt") == await tokenizer.encode_async(request_id="request_id",
-                                                  prompt="prompt",
-                                                  lora_request=lora_request)
-    assert isinstance(tokenizer.get_lora_tokenizer(None),
-                      PreTrainedTokenizerBase)
+        request_id="request_id", prompt="prompt", lora_request=lora_request
+    )
+    assert reference_tokenizer.encode("prompt") == await tokenizer.encode_async(
+        request_id="request_id", prompt="prompt", lora_request=lora_request
+    )
+    assert isinstance(tokenizer.get_lora_tokenizer(None), PreTrainedTokenizerBase)
     assert tokenizer.get_lora_tokenizer(
-        None) == await tokenizer.get_lora_tokenizer_async(None)
+        None
+    ) == await tokenizer.get_lora_tokenizer_async(None)
 
-    assert isinstance(tokenizer.get_lora_tokenizer(lora_request),
-                      PreTrainedTokenizerBase)
+    assert isinstance(
+        tokenizer.get_lora_tokenizer(lora_request), PreTrainedTokenizerBase
+    )
+    assert tokenizer.get_lora_tokenizer(lora_request) != tokenizer.get_lora_tokenizer(
+        None
+    )
     assert tokenizer.get_lora_tokenizer(
-        lora_request) != tokenizer.get_lora_tokenizer(None)
-    assert tokenizer.get_lora_tokenizer(
-        lora_request) == await tokenizer.get_lora_tokenizer_async(lora_request)
+        lora_request
+    ) == await tokenizer.get_lora_tokenizer_async(lora_request)
 
 
 def test_get_lora_tokenizer(sql_lora_files, tmpdir):

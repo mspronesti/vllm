@@ -9,14 +9,15 @@ import ray  # using Ray for overall ease of process management, parallel request
 import openai  # use the official client for correctness check
 
 MAX_SERVER_START_WAIT_S = 600  # wait for server to start for 60 seconds
-MODEL_NAME = "HuggingFaceH4/zephyr-7b-beta"  # any model with a chat template should work here
+MODEL_NAME = (
+    "HuggingFaceH4/zephyr-7b-beta"  # any model with a chat template should work here
+)
 
 pytestmark = pytest.mark.asyncio
 
 
 @ray.remote(num_gpus=1)
 class ServerRunner:
-
     def __init__(self, args):
         env = os.environ.copy()
         env["PYTHONUNBUFFERED"] = "1"
@@ -36,8 +37,7 @@ class ServerRunner:
         start = time.time()
         while True:
             try:
-                if requests.get(
-                        "http://localhost:8000/health").status_code == 200:
+                if requests.get("http://localhost:8000/health").status_code == 200:
                     break
             except Exception as err:
                 if self.proc.poll() is not None:
@@ -45,8 +45,7 @@ class ServerRunner:
 
                 time.sleep(0.5)
                 if time.time() - start > MAX_SERVER_START_WAIT_S:
-                    raise RuntimeError(
-                        "Server failed to start in time.") from err
+                    raise RuntimeError("Server failed to start in time.") from err
 
     def __del__(self):
         if hasattr(self, "proc"):
@@ -56,15 +55,17 @@ class ServerRunner:
 @pytest.fixture(scope="session")
 def server():
     ray.init()
-    server_runner = ServerRunner.remote([
-        "--model",
-        MODEL_NAME,
-        "--dtype",
-        "bfloat16",  # use half precision for speed and memory savings in CI environment
-        "--max-model-len",
-        "8192",
-        "--enforce-eager",
-    ])
+    server_runner = ServerRunner.remote(
+        [
+            "--model",
+            MODEL_NAME,
+            "--dtype",
+            "bfloat16",  # use half precision for speed and memory savings in CI environment
+            "--max-model-len",
+            "8192",
+            "--enforce-eager",
+        ]
+    )
     ray.get(server_runner.ready.remote())
     yield server_runner
     ray.shutdown()
@@ -80,18 +81,19 @@ def client():
 
 
 async def test_single_completion(server, client: openai.AsyncOpenAI):
-    completion = await client.completions.create(model=MODEL_NAME,
-                                                 prompt="Hello, my name is",
-                                                 max_tokens=5,
-                                                 temperature=0.0)
+    completion = await client.completions.create(
+        model=MODEL_NAME, prompt="Hello, my name is", max_tokens=5, temperature=0.0
+    )
 
     assert completion.id is not None
     assert completion.choices is not None and len(completion.choices) == 1
-    assert completion.choices[0].text is not None and len(
-        completion.choices[0].text) >= 5
+    assert (
+        completion.choices[0].text is not None and len(completion.choices[0].text) >= 5
+    )
     assert completion.choices[0].finish_reason == "length"
     assert completion.usage == openai.types.CompletionUsage(
-        completion_tokens=5, prompt_tokens=6, total_tokens=11)
+        completion_tokens=5, prompt_tokens=6, total_tokens=11
+    )
 
     # test using token IDs
     completion = await client.completions.create(
@@ -100,18 +102,16 @@ async def test_single_completion(server, client: openai.AsyncOpenAI):
         max_tokens=5,
         temperature=0.0,
     )
-    assert completion.choices[0].text is not None and len(
-        completion.choices[0].text) >= 5
+    assert (
+        completion.choices[0].text is not None and len(completion.choices[0].text) >= 5
+    )
 
 
 async def test_single_chat_session(server, client: openai.AsyncOpenAI):
-    messages = [{
-        "role": "system",
-        "content": "you are a helpful assistant"
-    }, {
-        "role": "user",
-        "content": "what is 1+1?"
-    }]
+    messages = [
+        {"role": "system", "content": "you are a helpful assistant"},
+        {"role": "user", "content": "what is 1+1?"},
+    ]
 
     # test single completion
     chat_completion = await client.chat.completions.create(
@@ -120,8 +120,7 @@ async def test_single_chat_session(server, client: openai.AsyncOpenAI):
         max_tokens=10,
     )
     assert chat_completion.id is not None
-    assert chat_completion.choices is not None and len(
-        chat_completion.choices) == 1
+    assert chat_completion.choices is not None and len(chat_completion.choices) == 1
     assert chat_completion.choices[0].message is not None
     message = chat_completion.choices[0].message
     assert message.content is not None and len(message.content) >= 10
@@ -167,13 +166,10 @@ async def test_completion_streaming(server, client: openai.AsyncOpenAI):
 
 
 async def test_chat_streaming(server, client: openai.AsyncOpenAI):
-    messages = [{
-        "role": "system",
-        "content": "you are a helpful assistant"
-    }, {
-        "role": "user",
-        "content": "what is 1+1?"
-    }]
+    messages = [
+        {"role": "system", "content": "you are a helpful assistant"},
+        {"role": "user", "content": "what is 1+1?"},
+    ]
 
     # test single completion
     chat_completion = await client.chat.completions.create(
@@ -224,15 +220,19 @@ async def test_batch_completions(server, client: openai.AsyncOpenAI):
         temperature=0.0,
         extra_body=dict(
             # NOTE: this has to be true for n > 1 in vLLM, but not necessary for official client.
-            use_beam_search=True),
+            use_beam_search=True
+        ),
     )
     assert len(batch.choices) == 4
-    assert batch.choices[0].text != batch.choices[
-        1].text, "beam search should be different"
-    assert batch.choices[0].text == batch.choices[
-        2].text, "two copies of the same prompt should be the same"
-    assert batch.choices[1].text == batch.choices[
-        3].text, "two copies of the same prompt should be the same"
+    assert (
+        batch.choices[0].text != batch.choices[1].text
+    ), "beam search should be different"
+    assert (
+        batch.choices[0].text == batch.choices[2].text
+    ), "two copies of the same prompt should be the same"
+    assert (
+        batch.choices[1].text == batch.choices[3].text
+    ), "two copies of the same prompt should be the same"
 
     # test streaming
     batch = await client.completions.create(

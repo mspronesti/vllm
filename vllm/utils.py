@@ -38,7 +38,6 @@ class Device(enum.Enum):
 
 
 class Counter:
-
     def __init__(self, start: int = 0) -> None:
         self.counter = start
 
@@ -52,7 +51,6 @@ class Counter:
 
 
 class LRUCache:
-
     def __init__(self, capacity: int):
         self.cache = OrderedDict()
         self.capacity = capacity
@@ -124,8 +122,7 @@ def get_max_shared_memory_bytes(gpu: int = 0) -> int:
     # the Neuron-X backend does not have the `cuda_utils` module.
     from vllm._C import cuda_utils
 
-    max_shared_mem = cuda_utils.get_max_shared_memory_per_block_device_attribute(
-        gpu)
+    max_shared_mem = cuda_utils.get_max_shared_memory_per_block_device_attribute(gpu)
     # value 0 will cause MAX_SEQ_LEN become negative and test_attention.py will fail
     assert max_shared_mem > 0, "max_shared_mem can not be zero"
     return int(max_shared_mem)
@@ -182,14 +179,15 @@ def set_cuda_visible_devices(device_ids: List[int]) -> None:
 
 
 def get_nvcc_cuda_version() -> Version:
-    cuda_home = os.environ.get('CUDA_HOME')
+    cuda_home = os.environ.get("CUDA_HOME")
     if not cuda_home:
-        cuda_home = '/usr/local/cuda'
+        cuda_home = "/usr/local/cuda"
         logger.info(
-            f'CUDA_HOME is not found in the environment. Using {cuda_home} as CUDA_HOME.'
+            f"CUDA_HOME is not found in the environment. Using {cuda_home} as CUDA_HOME."
         )
-    nvcc_output = subprocess.check_output([cuda_home + "/bin/nvcc", "-V"],
-                                          universal_newlines=True)
+    nvcc_output = subprocess.check_output(
+        [cuda_home + "/bin/nvcc", "-V"], universal_newlines=True
+    )
     output = nvcc_output.split()
     release_idx = output.index("release") + 1
     nvcc_cuda_version = parse(output[release_idx].split(",")[0])
@@ -204,12 +202,13 @@ def _generate_random_fp8_e5m2(
     # NOTE(zhaoyang): Due to NaN and Inf representation for fp8 data type,
     # it may occur Inf or NaN if we directly use torch.randint
     # to generate random data for fp8 data.
-    # For example, s.11111.00 in fp8e5m2 format repesents Inf.
+    # For example, s.11111.00 in fp8e5m2 format represents Inf.
     #     | E4M3        | E5M2
-    #-----|-------------|-------------------
+    # -----|-------------|-------------------
     # Inf | N/A         | s.11111.00
     # NaN | s.1111.111  | s.11111.{01,10,11}
     from vllm._C import cache_ops
+
     tensor_tmp = torch.empty_like(tensor, dtype=torch.float16)
     tensor_tmp.uniform_(low, high)
     cache_ops.convert_fp8_e5m2(tensor_tmp, tensor)
@@ -255,24 +254,22 @@ def create_kv_caches_with_random(
     key_cache_shape = (num_blocks, num_heads, head_size // x, block_size, x)
     key_caches = []
     for _ in range(num_layers):
-        key_cache = torch.empty(size=key_cache_shape,
-                                dtype=torch_dtype,
-                                device=device)
+        key_cache = torch.empty(size=key_cache_shape, dtype=torch_dtype, device=device)
         if cache_dtype in ["auto", "half", "bfloat16", "float"]:
             key_cache.uniform_(-scale, scale)
-        elif cache_dtype == 'fp8_e5m2':
+        elif cache_dtype == "fp8_e5m2":
             _generate_random_fp8_e5m2(key_cache, -scale, scale)
         key_caches.append(key_cache)
 
     value_cache_shape = (num_blocks, num_heads, head_size, block_size)
     value_caches = []
     for _ in range(num_layers):
-        value_cache = torch.empty(size=value_cache_shape,
-                                  dtype=torch_dtype,
-                                  device=device)
+        value_cache = torch.empty(
+            size=value_cache_shape, dtype=torch_dtype, device=device
+        )
         if cache_dtype in ["auto", "half", "bfloat16", "float"]:
             value_cache.uniform_(-scale, scale)
-        elif cache_dtype == 'fp8_e5m2':
+        elif cache_dtype == "fp8_e5m2":
             _generate_random_fp8_e5m2(value_cache, -scale, scale)
         value_caches.append(value_cache)
     return key_caches, value_caches

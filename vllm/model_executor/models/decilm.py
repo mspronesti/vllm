@@ -30,8 +30,10 @@ from transformers import PretrainedConfig
 
 from vllm.model_executor.layers.linear import LinearMethodBase
 from vllm.model_executor.models.llama import LlamaForCausalLM
-from vllm.model_executor.weight_utils import (default_weight_loader,
-                                              hf_model_weights_iterator)
+from vllm.model_executor.weight_utils import (
+    default_weight_loader,
+    hf_model_weights_iterator,
+)
 
 
 class DeciLMForCausalLM(LlamaForCausalLM):
@@ -40,7 +42,7 @@ class DeciLMForCausalLM(LlamaForCausalLM):
     Based on the llama executor.
 
     The main difference is that DeciLM uses Variable Grouped Query Attention.
-    The constant number of GQA heads in the decoder is overriden with a value
+    The constant number of GQA heads in the decoder is overridden with a value
     per layer.
 
     Usually, in the HuggingFace implementation, instead of
@@ -61,11 +63,13 @@ class DeciLMForCausalLM(LlamaForCausalLM):
         delattr(config, "num_key_value_heads_per_layer")
         super().__init__(config=config, linear_method=linear_method)
 
-    def load_weights(self,
-                     model_name_or_path: str,
-                     cache_dir: Optional[str] = None,
-                     load_format: str = "auto",
-                     revision: Optional[str] = None):
+    def load_weights(
+        self,
+        model_name_or_path: str,
+        cache_dir: Optional[str] = None,
+        load_format: str = "auto",
+        revision: Optional[str] = None,
+    ):
         stacked_params_mapping = [
             # (param_name, shard_name, shard_id)
             ("qkv_proj", "q_proj", "q"),
@@ -76,14 +80,15 @@ class DeciLMForCausalLM(LlamaForCausalLM):
         ]
         params_dict = dict(self.named_parameters())
         for name, loaded_weight in hf_model_weights_iterator(
-                model_name_or_path, cache_dir, load_format, revision):
+            model_name_or_path, cache_dir, load_format, revision
+        ):
             if "rotary_emb.inv_freq" in name:
                 continue
 
             if "k_proj" in name or "v_proj" in name:
                 loaded_weight = self._degroup_weight(loaded_weight)
 
-            for (param_name, weight_name, shard_id) in stacked_params_mapping:
+            for param_name, weight_name, shard_id in stacked_params_mapping:
                 if weight_name not in name:
                     continue
                 name = name.replace(weight_name, param_name)
@@ -99,8 +104,7 @@ class DeciLMForCausalLM(LlamaForCausalLM):
                 if name.endswith(".bias") and name not in params_dict:
                     continue
                 param = params_dict[name]
-                weight_loader = getattr(param, "weight_loader",
-                                        default_weight_loader)
+                weight_loader = getattr(param, "weight_loader", default_weight_loader)
                 weight_loader(param, loaded_weight)
 
     def _degroup_weight(self, loaded_weight: torch.Tensor) -> torch.Tensor:
@@ -112,12 +116,10 @@ class DeciLMForCausalLM(LlamaForCausalLM):
         assert n_repeats == int(n_repeats)
 
         n_repeats = int(n_repeats)
-        loaded_weight = loaded_weight.view(num_kv_heads, head_size,
-                                           hidden_size)
-        loaded_weight = torch.repeat_interleave(loaded_weight,
-                                                repeats=n_repeats,
-                                                dim=0)
-        loaded_weight = loaded_weight.reshape(target_num_kv_heads * head_size,
-                                              hidden_size)
+        loaded_weight = loaded_weight.view(num_kv_heads, head_size, hidden_size)
+        loaded_weight = torch.repeat_interleave(loaded_weight, repeats=n_repeats, dim=0)
+        loaded_weight = loaded_weight.reshape(
+            target_num_kv_heads * head_size, hidden_size
+        )
 
         return loaded_weight
